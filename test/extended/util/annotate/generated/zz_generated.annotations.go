@@ -299,6 +299,8 @@ var Annotations = map[string]string{
 
 	"[sig-auth][Feature:OpenShiftAuthorization] self-SAR compatibility TestSelfSubjectAccessReviewsNonExistingNamespace should succeed [apigroup:user.openshift.io][apigroup:authorization.openshift.io]": " [Suite:openshift/conformance/parallel]",
 
+	"[sig-auth][Feature:OpenShiftAuthorization] self-SAR with scoped tokens should succeed [apigroup:user.openshift.io][apigroup:authorization.openshift.io][apigroup:oauth.openshift.io]": " [Suite:openshift/conformance/parallel]",
+
 	"[sig-auth][Feature:OpenShiftAuthorization][Serial] authorization TestAuthorizationResourceAccessReview should succeed [apigroup:authorization.openshift.io]": " [Suite:openshift/conformance/serial]",
 
 	"[sig-auth][Feature:PodSecurity] restricted-v2 SCC should mutate empty securityContext to match restricted PSa profile": " [Suite:openshift/conformance/parallel]",

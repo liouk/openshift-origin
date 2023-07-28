@@ -1,13 +1,18 @@
 package authorization
 
 import (
+	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	g "github.com/onsi/ginkgo/v2"
 	authorizationv1 "github.com/openshift/api/authorization/v1"
+	oauthv1 "github.com/openshift/api/oauth/v1"
+	v1 "github.com/openshift/api/user/v1"
 	authorizationv1typedclient "github.com/openshift/client-go/authorization/clientset/versioned/typed/authorization/v1"
+	oauthv1client "github.com/openshift/client-go/oauth/clientset/versioned/typed/oauth/v1"
 	exutil "github.com/openshift/origin/test/extended/util"
 )
 
@@ -80,5 +85,82 @@ var _ = g.Describe("[sig-auth][Feature:OpenShiftAuthorization] self-SAR compatib
 				}.run(t)
 			})
 		})
+	})
+})
+
+var _ = g.Describe("[sig-auth][Feature:OpenShiftAuthorization] self-SAR with scoped tokens", func() {
+	defer g.GinkgoRecover()
+	oc := exutil.NewCLI("scoped-tokens")
+
+	g.It(fmt.Sprintf("should succeed [apigroup:user.openshift.io][apigroup:authorization.openshift.io][apigroup:oauth.openshift.io]"), func() {
+		t := g.GinkgoT()
+
+		clusterAdminClientConfig := oc.AdminConfig()
+		clusterAdminOAuthClient := oauthv1client.NewForConfigOrDie(clusterAdminClientConfig)
+		client := &oauthv1.OAuthClient{
+			ObjectMeta:  metav1.ObjectMeta{Name: "testing-client-" + oc.Namespace()},
+			GrantMethod: oauthv1.GrantHandlerAuto,
+		}
+		if _, err := clusterAdminOAuthClient.OAuthClients().Create(context.Background(), client, metav1.CreateOptions{}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		oc.AddResourceToDelete(oauthv1.GroupVersion.WithResource("oauthclients"), client)
+
+		user := oc.CreateUser("tokenuser-")
+		oc.AddResourceToDelete(v1.GroupVersion.WithResource("users"), user)
+
+		var createToken = func(tokenName string, scopes []string) *oauthv1.OAuthAccessToken {
+			token := &oauthv1.OAuthAccessToken{
+				ObjectMeta:  metav1.ObjectMeta{Name: tokenName},
+				ClientName:  client.Name,
+				UserName:    user.Name,
+				UserUID:     string(user.UID),
+				Scopes:      scopes,
+				RedirectURI: "https://localhost:8443/oauth/token/implicit",
+			}
+
+			_, err := clusterAdminOAuthClient.OAuthAccessTokens().Create(context.Background(), token, metav1.CreateOptions{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			oc.AddResourceToDelete(oauthv1.GroupVersion.WithResource("oauthaccesstokens"), token)
+
+			return token
+		}
+
+		tests := []struct {
+			description    string
+			token          string
+			tokenObj       *oauthv1.OAuthAccessToken
+			selfSARAllowed bool
+		}{
+			{
+				"token has no user:check-access user:full or role scope",
+				"sha256~cQCrXRpBdghJ9EjcHBJs3fAG8hhusl20B1YwZ_WwQF8",
+				createToken("sha256~jwahvfqk7YeWkPkqTeOHJbKE4uDUqsoP1XhRHvk5--g", []string{"user:info", "user:list-projects"}),
+				false,
+			},
+			{
+				"token has user:check-access scope",
+				"sha256~74nvCq63mA7c7fwkbqunvtoHv3i_4f_L3ToIX-vqEAg",
+				createToken("sha256~nERCZRl1SLWsQJ1LO6uZqwtThWiMMWjhyOsCLEA10E8", []string{"user:check-access"}),
+				true,
+			},
+			{
+				"token has user:full scope",
+				"sha256~3jWRPKDnhizSVdZEmAMbQaU6FKGr8O2XuJXG2utA4k8",
+				createToken("sha256~44yteqXEA9zXAFifKmKyyiUwpOk5ZhUuUyd_s-WkNQY", []string{"user:full"}),
+				true,
+			},
+			{
+				"token has role scope",
+				"sha256~RmcujdrsbNvRDl_-sEzp1sx6HbP-2ZlmFnvNY6rEN14",
+				createToken("sha256~FlazKBhtre9nB0rnf_Tq1PB4b_7nI_a48H_K605x_f4", []string{"role:myrole:test"}),
+				true,
+			},
+		}
+
+		for range tests {
+		}
 	})
 })
