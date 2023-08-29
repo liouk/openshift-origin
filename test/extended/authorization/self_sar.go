@@ -131,7 +131,7 @@ var _ = g.Describe("[sig-auth][Feature:OpenShiftAuthorization] self-SAR with sco
 		tests := []struct {
 			description    string
 			token          string
-			tokenObj       *oauthv1.OAuthAccessToken
+			tokenObj       *oauthv1.OAuthAccessToken // TODO do I need the whole token object in the test?
 			selfSARAllowed bool
 		}{
 			{
@@ -155,12 +155,13 @@ var _ = g.Describe("[sig-auth][Feature:OpenShiftAuthorization] self-SAR with sco
 			{
 				"token has role scope",
 				"sha256~RmcujdrsbNvRDl_-sEzp1sx6HbP-2ZlmFnvNY6rEN14",
-				createToken("sha256~FlazKBhtre9nB0rnf_Tq1PB4b_7nI_a48H_K605x_f4", []string{"role:myrole:test"}),
+				createToken("sha256~FlazKBhtre9nB0rnf_Tq1PB4b_7nI_a48H_K605x_f4", []string{"role:myrole:test"}), // TODO do I need to create this role?
 				true,
 			},
 		}
 
 		for range tests {
+			// TODO use token to perform a self-SAR and assert expected result
 		}
 	})
 })
